@@ -1,0 +1,40 @@
+Assignment 1:
+1) Write a program that takes an input file, sorts it and writes it to a specified output file.
+
+Given to you:
+generate.c
+sort.h
+
+After running generate, you will have a file that needs to be sorted. It will be filled with binary data, of the following form: a series of 100-byte records, the first four bytes of which are an unsigned integer key, and the remaining 96 bytes of which are integers that form the rest of the record. 
+
+A) You need to write: sort.c that takes the above file as input and sorts it based on the 4-byte key. The value part should be kept with the same key. The sorted output should be written to a file. For sorting use the library routine qsort.
+
+gcc -o generate generate.c -Wall -Werror
+
+Note: you will also need the header file sort.h to compile this program.
+
+To run it:
+
+./generate -s 0 -n 100 -o /tmp/outfile
+
+There are three flags to generate. The -s flag specified a random number seed; this allows you to generate different files to test your sort on. The -n flag determines how many records to write to the output file, each of size 100 bytes. Finally, the -o flag determines the output file, which will be the input file for your sort.
+
+B) Verify that the file is indeed sorted. 
+Write in human readable forms the key that is generated for each record while demonstrating to TA.
+
+
+2) Find out what is your ip-address using ifconfig. Repeat the same exercise by using whatismyip.com. Do you see any difference? If yes, explain.
+
+
+3) Write down the latencies for each case
+ping 127.0.0.1
+ping www.google.com
+ping www.iitmandi.ac.in
+
+
+4) what is the relative ordering among the latencies? Why? 
+
+5) In one terminal, use wget to download a large file and in another, run the ping command. What latencies do you observe?
+
+6) Install wireshark and oracle vmbox on your system. Install an OS image. After successfully installing it, just report saying installation done successfully as your response to this question.
+
