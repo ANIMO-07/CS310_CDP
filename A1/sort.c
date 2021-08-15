@@ -1,87 +1,107 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <assert.h>
-#include <ctype.h>
-#include <string.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<sys/stat.h>
 #include "sort.h"
-#include <sys/types.h>
-#include <sys/stat.h>
 
-void createRectArray(FILE* file_ptr, rec_t* rArray) {
-    rec_t r;
-    for(int i = 0; i < 100; i++) {
-        fread(&r, sizeof(rec_t), 1, file_ptr);
-        rArray[i] = r;
+
+void print_keys_and_records_from_array(rec_t* start, int n){
+    printf("\n\nPRINTING THE ARRAY READ FROM THE FILE AFTER SORTING...\n\n");
+    
+    for(int j = 0;j<n;j++){
+        printf("%u\t:", start[j].key);
+        for(int i = 0;i<NUMRECS;i++)
+            printf("%u ", start[j].record[i]);
+        printf("\n");
     }
 }
 
-void print_data(rec_t *rArray) {
-    for(int i = 0; i < 100; i++) {
-        fprintf(stderr, "%d : ", rArray[i].key);
+void write_to_file(rec_t* start, char* outpath, int n){
+    FILE *fptr = fopen((const char*)outpath, "wb");
+    fwrite(start, sizeof(rec_t),n, fptr );
+    fclose(fptr);
+    return;
+}
 
-        for(int j = 0; j < 24; j++) {
-            fprintf(stderr, "%d ", rArray[i].record[j]);
-        }
+void print_bin_file_content(char* outpath, int n){
+    printf("\n\nREAD FROM THE FILE LOCATED AT \"%s\"...\n\n", outpath);
 
-        fprintf(stderr, "\n");
+    FILE *fptr = fopen((const char*)outpath, "rb");
+
+    unsigned int* keyptr = malloc(sizeof(unsigned int));
+    unsigned int* recptr_part = malloc(sizeof(unsigned int)*24);
+
+    for(int j = 0;j<n;j++){
+        fread(keyptr, sizeof(unsigned int), 1, fptr);
+        printf("%u\t:", *keyptr);
+        
+        fread(recptr_part, sizeof(unsigned int), NUMRECS, fptr);
+        for( int i = 0; i<NUMRECS ; i++)
+            printf("%u ",recptr_part[i]);
+
+        printf("\n");
+    }
+}
+
+int sort_comp(const void* a, const void* b){
+    if ( ((rec_t*)a)->key >= ((rec_t*)b)->key) return 1;
+    else return 0; 
+}
+
+int main(int argc, char* argv[]){
+
+    if(argc != 3){
+        printf("Inappropriate arguments provided!\n");
+        printf("Please run the file in the following syntax \n./<executable_file> -s <location of the file to be sorted>\n");
+        return -1;
     }
 
-    fprintf(stderr, " DONE PRINTING \n");
-}
+    
 
-void createOutputFile(rec_t *rArray) {
-    char *outFile = "sorted_output";
-
-    // open and create output file
-	int fd = open(outFile, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
-	if (fd < 0)
-	{
-		perror("open");
-		exit(1);
-	}
-
-	for (int i = 0; i < 100; i++)
-	{
-		int rc = write(fd, &rArray[i], sizeof(rec_t));
-		if (rc != sizeof(rec_t))
-		{
-			perror("write");
-			exit(1);
-			// should probably remove file here but ...
-		}
-	}
-
-	// ok to ignore error code here, because we're done anyhow...
-	(void)close(fd);
-}
-
-int cmpfunc (const void * a, const void * b) {
-   return ( ((rec_t *)a) -> key > ((rec_t *)b) -> key );
-}
-
-int main () {
-
-    // Opening the file
-    FILE *file_ptr;
-    file_ptr = fopen("outfile", "rb");
-
-    // creating the array of struct rec_t
-    rec_t rArray[100];
-    createRectArray(file_ptr, rArray);
-
-    print_data(rArray);
-
-    // sorting by key using the comparator function
-    // using quick sort
-    qsort(rArray, 100, sizeof(rec_t), cmpfunc);
-
-    print_data(rArray);
-
-    // Now store in the output file
-    createOutputFile(rArray);
+    char* outpath = argv[2];    
+    
+    // finding the number of 100 byte records in the output file ( we won't be hardcoding n, it will work for any input of n in when generating the out )
+    struct stat st;
+    stat(outpath, &st);
+    int n = st.st_size/100;     // as st.st_size return the size of the file in bytes and each record in the file has size 100 bytes
 
 
+    // Reading file contents before sorting
+    print_bin_file_content(outpath, n);
+
+    FILE *fptr;
+    fptr = fopen((const char*)outpath, "rb");
+
+    
+    rec_t arr[n];
+    int count = 0;
+
+
+    unsigned int* keyptr = malloc(sizeof(unsigned int));
+    unsigned int* recptr_part = malloc(sizeof(unsigned int)*24);
+
+    while(count < n) {
+        fread(keyptr, sizeof(unsigned int), 1, fptr);
+        arr[count].key = *keyptr;
+        fread(recptr_part, sizeof(unsigned int), NUMRECS, fptr);
+        for( int i = 0;i<NUMRECS;i++)
+            arr[count].record[i] = recptr_part[i];
+        count++;
+    }
+
+    fclose(fptr);
+  
+    // sorting the array read from the file
+    qsort(arr, n, sizeof(rec_t), sort_comp);
+
+    // Uncomment the line below to print the array after it is sorted
+    print_keys_and_records_from_array(arr, n);
+    
+    // writing the sorted array to the file
+    write_to_file(arr, outpath, n);
+
+    // reading the file we just wrote to
+    print_bin_file_content(outpath, n);
+      
     return 0;
 }
