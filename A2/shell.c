@@ -9,8 +9,9 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
-
+#include <pwd.h>
 #include "tokenizer.h"
+#include <grp.h>
 
 /* Convenience macro to silence compiler warnings about unused function parameters. */
 #define unused __attribute__((unused))
@@ -68,14 +69,31 @@ int cmd_exit(unused struct tokens *tokens) {
 
 /* Prints the user id(real) of the current user */
 int cmd_uid(unused struct tokens *tokens){
-  printf("The user id is %d\n", getuid());
+  unsigned int id = getuid();
+  struct passwd *pws;
+  pws = getpwuid(id);
+  if ( errno != 0){
+    int errnum = errno;
+    fprintf(stderr,"An error occured while resolving the name for the id %u with the ERROR CODE: %s\n", id,strerror(errnum));
+    return -1;
+  }
+  printf("%s\n", pws->pw_name);
   return 1;
 }
 
 
 /* Prints the user id(real) of the current user */
 int cmd_gid(unused struct tokens *tokens){
-  printf("The group id is %d\n", getgid());
+  unsigned int id = getgid();
+  struct passwd *pws;
+  pws = getpwuid(id);
+  if ( errno != 0){
+    int errnum = errno;
+    fprintf(stderr, "An error occured while resolving the name for the id %u with the ERROR CODE: %s\n", id,strerror(errnum));
+    return -1;
+  }
+  
+  printf("%s\n", pws->pw_name);
   return 1;
 }
 
@@ -99,13 +117,47 @@ int cmd_groups(unused struct tokens *tokens){
     fprintf(stderr, "Error finding the groups for the user: %s\n", strerror(errnum));
     return -1;
   }
-
+ 
   
   printf("The groups of the current user are:\n");
   for( int i = 0;i<num_of_groups;i++){
-    printf("%u ",group_ids[i]);
+    struct group *grpname = getgrgid(group_ids[i]);
+    printf("%s ", grpname->gr_name); 
   }
   printf("\n");
+  return 1;
+}
+
+int file_check(char* loc){
+  if ( access(loc, F_OK) == 0)
+    return 1;
+  else{
+    return -1;
+  }
+}
+
+int run_bin_file(struct tokens *tokens){
+  char* loc = tokens_get_token(tokens, 0);
+  if ( file_check(loc) == -1 ){
+    fprintf(stderr, "Executable file not found at the given location!\n");
+    return -1;
+  }
+
+  /* Making a copy of the tokenized arguments */
+  unsigned int num_of_args = tokens_get_length(tokens);
+  
+  char* args[num_of_args];
+  for ( int i = 0;i<num_of_args;i++){
+    args[i] = tokens_get_token(tokens, i);
+  } 
+  
+  pid_t pid = fork();
+  if ( pid == 0){
+    execv(args[0], args);
+    }
+  else{
+    wait(&pid);
+  }
   return 1;
 }
 
@@ -117,6 +169,8 @@ int lookup(char cmd[]) {
       return i;
   return -1;
 }
+
+
 
 /* Intialization procedures for this shell */
 void init_shell() {
@@ -164,8 +218,7 @@ int main(unused int argc, unused char *argv[]) {
     if (fundex >= 0) {
       cmd_table[fundex].fun(tokens);
     } else {
-      /* REPLACE this to run commands as programs. */
-      fprintf(stdout, "This shell doesn't know how to run this command.\n");
+      run_bin_file(tokens);
     }
 
     if (shell_is_interactive)
