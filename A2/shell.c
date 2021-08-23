@@ -146,10 +146,11 @@ int run_bin_file(struct tokens *tokens){
   /* Making a copy of the tokenized arguments */
   unsigned int num_of_args = tokens_get_length(tokens);
   
-  char* args[num_of_args];
+  char* args[num_of_args+1];
   for ( int i = 0;i<num_of_args;i++){
     args[i] = tokens_get_token(tokens, i);
   } 
+  args[num_of_args] = NULL;
   
   pid_t pid = fork();
   if ( pid == 0){
