@@ -1,0 +1,6 @@
+animo
+The groups of the current user are:
+adm dialout cdrom floppy sudo audio dip video plugdev netdev animo 
+Number of args = 5
+Hello World!
+test 1 2 3 4 

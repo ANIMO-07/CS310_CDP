@@ -12,6 +12,7 @@
 #include <pwd.h>
 #include "tokenizer.h"
 #include <grp.h>
+#include <fcntl.h>
 
 /* Convenience macro to silence compiler warnings about unused function parameters. */
 #define unused __attribute__((unused))
@@ -146,7 +147,10 @@ int run_bin_file(struct tokens *tokens){
   /* Making a copy of the tokenized arguments */
   unsigned int num_of_args = tokens_get_length(tokens);
   
-  char* args[num_of_args+1];
+  if(num_of_args >= 3 && *(tokens_get_token(tokens, num_of_args-2)) == '>'){
+    num_of_args-=2;
+  }
+  char* args[num_of_args + 1];
   for ( int i = 0;i<num_of_args;i++){
     args[i] = tokens_get_token(tokens, i);
   } 
@@ -154,6 +158,7 @@ int run_bin_file(struct tokens *tokens){
   
   pid_t pid = fork();
   if ( pid == 0){
+	signal(SIGINT , SIG_DFL);
     execv(args[0], args);
     }
   else{
@@ -177,7 +182,7 @@ int lookup(char cmd[]) {
 void init_shell() {
   /* Our shell is connected to standard input. */
   shell_terminal = STDIN_FILENO;
-
+  signal(SIGINT , SIG_IGN);
   /* Check if we are running interactively */
   shell_is_interactive = isatty(shell_terminal);
 
@@ -200,6 +205,7 @@ void init_shell() {
 }
 
 int main(unused int argc, unused char *argv[]) {
+
   init_shell();
 
   static char line[4096];
@@ -212,14 +218,33 @@ int main(unused int argc, unused char *argv[]) {
   while (fgets(line, 4096, stdin)) {
     /* Split our line into words. */
     struct tokens *tokens = tokenize(line);
+	    int len = tokens_get_length(tokens);
+		
+    if(len >= 3 && *(tokens_get_token(tokens, len-2)) == '>'){
+      const char *filename = tokens_get_token(tokens, len-1);
+      int fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0777);
+      int saved_stdout = dup(STDOUT_FILENO);
+      dup2(fd, STDOUT_FILENO);
+      (void) close(fd);
+
+      int fundex = lookup(tokens_get_token(tokens, 0));
+      if (fundex >= 0) {
+        cmd_table[fundex].fun(tokens);
+      } else {
+        run_bin_file(tokens);
+      }
+      dup2(saved_stdout, STDOUT_FILENO);
+    }
 
     /* Find which built-in function to run. */
+	else{
     int fundex = lookup(tokens_get_token(tokens, 0));
 
     if (fundex >= 0) {
       cmd_table[fundex].fun(tokens);
     } else {
       run_bin_file(tokens);
+	}
     }
 
     if (shell_is_interactive)
