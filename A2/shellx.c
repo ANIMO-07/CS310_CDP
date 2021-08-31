@@ -17,8 +17,6 @@
 /* Convenience macro to silence compiler warnings about unused function parameters. */
 #define unused __attribute__((unused))
 
-extern int errno;
-
 /* Whether the shell is connected to an actual terminal or not. */
 bool shell_is_interactive;
 
@@ -70,31 +68,21 @@ int cmd_exit(unused struct tokens *tokens) {
 
 /* Prints the user id(real) of the current user */
 int cmd_uid(unused struct tokens *tokens){
-  unsigned int id = getuid();
-  struct passwd *pws;
-  pws = getpwuid(id);
-  if ( errno != 0){
-    int errnum = errno;
-    fprintf(stderr,"An error occured while resolving the name for the id %u with the ERROR CODE: %s\n", id,strerror(errnum));
-    return -1;
-  }
-  printf("%s\n", pws->pw_name);
+  unsigned int _uid = getuid();
+  struct passwd *paswd;
+  paswd = getpwuid(_uid);
+  printf("%s\n", paswd->pw_name);
   return 1;
 }
 
 
 /* Prints the user id(real) of the current user */
 int cmd_gid(unused struct tokens *tokens){
-  unsigned int id = getgid();
-  struct passwd *pws;
-  pws = getpwuid(id);
-  if ( errno != 0){
-    int errnum = errno;
-    fprintf(stderr, "An error occured while resolving the name for the id %u with the ERROR CODE: %s\n", id,strerror(errnum));
-    return -1;
-  }
+  unsigned int _gid = getgid();
+  struct passwd *paswd;
+  paswd = getpwuid(_gid);
   
-  printf("%s\n", pws->pw_name);
+  printf("%s\n", paswd->pw_name);
   return 1;
 }
 
@@ -102,26 +90,14 @@ int cmd_gid(unused struct tokens *tokens){
 int cmd_groups(unused struct tokens *tokens){
   
   /* A psuedo call to get the number of groups for the current user */
-  int num_of_groups = getgroups(0, NULL);
-  
-  if ( num_of_groups == -1){
-    int errnum = errno;
-    fprintf(stderr, "Error finding the number of groups for the user: %s\n", strerror(errnum));
-    return -1;
-  }
+  int num_grps = getgroups(0, NULL);
 
-  gid_t group_ids[num_of_groups];
-  num_of_groups = getgroups(num_of_groups, group_ids);
-
-  if ( num_of_groups == -1){
-    int errnum = errno;
-    fprintf(stderr, "Error finding the groups for the user: %s\n", strerror(errnum));
-    return -1;
-  }
+  gid_t group_ids[num_grps];
+  num_grps = getgroups(num_grps, group_ids);
  
   
   printf("The groups of the current user are:\n");
-  for( int i = 0;i<num_of_groups;i++){
+  for( int i = 0;i<num_grps;i++){
     struct group *grpname = getgrgid(group_ids[i]);
     printf("%s ", grpname->gr_name); 
   }
@@ -137,7 +113,7 @@ int file_check(char* loc){
   }
 }
 
-int run_bin_file(struct tokens *tokens){
+int binary_file(struct tokens *tokens){
   char* loc = tokens_get_token(tokens, 0);
   if ( file_check(loc) == -1 ){
     fprintf(stderr, "Executable file not found at the given location!\n");
@@ -145,28 +121,27 @@ int run_bin_file(struct tokens *tokens){
   }
 
   /* Making a copy of the tokenized arguments */
-  unsigned int num_of_args = tokens_get_length(tokens);
-  
-  if(num_of_args >= 3 && *(tokens_get_token(tokens, num_of_args-2)) == '>'){
-    num_of_args-=2;
+  unsigned int num_args = tokens_get_length(tokens);
+  if(num_args >= 3 && *(tokens_get_token(tokens, num_args-2)) == '>'){
+    num_args-=2;
   }
-  char* args[num_of_args + 1];
-  for ( int i = 0;i<num_of_args;i++){
+  char* args[num_args + 1];
+  for ( int i = 0;i<num_args;i++){
     args[i] = tokens_get_token(tokens, i);
   } 
-  args[num_of_args] = NULL;
+  args[num_args] = NULL;
   
   pid_t pid = fork();
-  if ( pid == 0){
-	signal(SIGINT , SIG_DFL);
+  if (pid == 0){
+    signal(SIGINT , SIG_DFL);
     execv(args[0], args);
-    }
+  }
   else{
+    // signal(SIGSTOP, SIG_IGN);
     wait(&pid);
   }
   return 1;
 }
-
 
 /* Looks up the built-in command, if it exists. */
 int lookup(char cmd[]) {
@@ -175,8 +150,6 @@ int lookup(char cmd[]) {
       return i;
   return -1;
 }
-
-
 
 /* Intialization procedures for this shell */
 void init_shell() {
@@ -205,7 +178,6 @@ void init_shell() {
 }
 
 int main(unused int argc, unused char *argv[]) {
-
   init_shell();
 
   static char line[4096];
@@ -218,8 +190,7 @@ int main(unused int argc, unused char *argv[]) {
   while (fgets(line, 4096, stdin)) {
     /* Split our line into words. */
     struct tokens *tokens = tokenize(line);
-
-	    int len = tokens_get_length(tokens);
+    int len = tokens_get_length(tokens);
     if(len >= 3 && *(tokens_get_token(tokens, len-2)) == '>'){
       const char *filename = tokens_get_token(tokens, len-1);
       int fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0777);
@@ -231,22 +202,20 @@ int main(unused int argc, unused char *argv[]) {
       if (fundex >= 0) {
         cmd_table[fundex].fun(tokens);
       } else {
-        run_bin_file(tokens);
+        binary_file(tokens);
       }
       dup2(saved_stdout, STDOUT_FILENO);
     }
-
     /* Find which built-in function to run. */
-	else{
-    int fundex = lookup(tokens_get_token(tokens, 0));
-
-    if (fundex >= 0) {
-      cmd_table[fundex].fun(tokens);
-    } else {
-      run_bin_file(tokens);
-	}
+    else{
+      int fundex = lookup(tokens_get_token(tokens, 0));
+      if (fundex >= 0) {
+        cmd_table[fundex].fun(tokens);
+      } else {
+        binary_file(tokens);
+      }
     }
-
+    
     if (shell_is_interactive)
       /* Please only print shell prompts when standard input is not a tty */
       fprintf(stdout, "%d: ", ++line_num);
