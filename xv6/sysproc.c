@@ -89,3 +89,17 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+int
+sys_getProcessSize(void)
+{
+  struct proc *ptr = myproc();
+  return ptr->sz;
+}
+
+int
+sys_getTotalSyscalls(void)
+{
+  struct proc *ptr = myproc();
+  return ptr->syscalls;
+}

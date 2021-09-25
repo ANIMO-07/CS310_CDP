@@ -23,6 +23,8 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+int getProcessSize(void);
+int getTotalSyscalls(void);
 
 // ulib.c
 int stat(const char*, struct stat*);

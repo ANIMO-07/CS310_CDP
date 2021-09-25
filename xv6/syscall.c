@@ -103,6 +103,8 @@ extern int sys_unlink(void);
 extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
+extern int sys_getProcessSize(void);
+extern int sys_getTotalSyscalls(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -126,6 +128,8 @@ static int (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_getProcessSize] sys_getProcessSize,
+[SYS_getTotalSyscalls] sys_getTotalSyscalls,
 };
 
 void
@@ -133,6 +137,15 @@ syscall(void)
 {
   int num;
   struct proc *curproc = myproc();
+
+  static int nsys_calls = 0;
+  nsys_calls++;
+
+  num = curproc->tf->eax;
+
+  if(num == SYS_getTotalSyscalls){
+    curproc->syscalls = nsys_calls;
+  }
 
   num = curproc->tf->eax;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
