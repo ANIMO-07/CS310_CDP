@@ -218,8 +218,8 @@ int main(unused int argc, unused char *argv[]) {
   while (fgets(line, 4096, stdin)) {
     /* Split our line into words. */
     struct tokens *tokens = tokenize(line);
-
 	    int len = tokens_get_length(tokens);
+		
     if(len >= 3 && *(tokens_get_token(tokens, len-2)) == '>'){
       const char *filename = tokens_get_token(tokens, len-1);
       int fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0777);
